@@ -31,6 +31,9 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
           enable-oidc: false
 
+      - name: Show Azure Context (debug)
+        run: az account show
+
       - name: Terraform Init
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
