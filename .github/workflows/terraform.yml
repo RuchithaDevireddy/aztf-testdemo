@@ -3,14 +3,13 @@ run-name: Deploy to ${{ inputs.environments}} by @${{github.actor}}
 on:
   workflow_dispatch:
     inputs:
-      environments: 
-       description: "choose environment"
-       required: true
-       default: dev
-       type: choice
-       options:
-        - dev
-        - test
+      action:
+        type: choice
+        description: "Choose Terraform action"
+        required: true
+        options:
+          - plan
+          - apply
 jobs:
   terraform:
     runs-on: ubuntu-latest
