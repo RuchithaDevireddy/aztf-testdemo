@@ -1,7 +1,7 @@
 name: Terraform
 run-name: Deploy to ${{ inputs.environments}} by @${{github.actor}}
-on:
-  workflow_dispatch:
+#on:
+#  workflow_dispatch:
     inputs:
       action:
         type: choice
