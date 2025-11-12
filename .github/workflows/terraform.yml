@@ -1,15 +1,16 @@
 name: Terraform
 run-name: Deploy to ${{ inputs.environments}} by @${{github.actor}}
 on:
-   workflow_dispatch:
+  workflow_dispatch:
     inputs:
-      action:
-        type: choice
-        description: "Choose Terraform action"
-        required: true
-        options:
-          - plan
-          - apply
+      environments: 
+       description: "choose environment"
+       required: true
+       default: dev
+       type: choice
+       options:
+        - dev
+        - test
 jobs:
   terraform:
     runs-on: ubuntu-latest
