@@ -11,6 +11,10 @@ on:
        options:
         - dev
         - test
+  push:
+    branches:
+      - test
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
