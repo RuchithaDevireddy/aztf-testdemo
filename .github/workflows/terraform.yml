@@ -4,9 +4,17 @@ name: Terraform Azure VM
 on:
   push:
     branches:
-      - main
       - test
   workflow_dispatch:
+   inputs:
+      action:
+        type: choice
+        description: "Choose Terraform action"
+        required: true
+        options:
+          - plan
+          - apply
+
 
 jobs:
   deploy:
