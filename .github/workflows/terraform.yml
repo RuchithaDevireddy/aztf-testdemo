@@ -1,11 +1,18 @@
-name: Terraform Azure VM
+name: Terraform
+run-name: Deploy to ${{ inputs.environments}} by @${{github.actor}}
 
-# Trigger on push to main or test branch and allow manual runs
+# Trigger
 on:
-  push:
-    branches:
-      - test
   workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        description: "Choose Terraform action"
+        required: true
+        options:
+          - plan
+          - apply
+
 
 permissions:
   contents: read        # Required to checkout code
