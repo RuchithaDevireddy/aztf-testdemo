@@ -4,7 +4,6 @@ name: Terraform Azure VM
 on:
   push:
     branches:
-      - main
       - test
   workflow_dispatch:
 
