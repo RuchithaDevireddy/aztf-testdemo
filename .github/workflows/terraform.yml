@@ -1,66 +1,63 @@
+name: Terraform Azure VM
 
-name: Terraform
-run-name: Deploy to ${{ inputs.environments}} by @${{github.actor}}
+# Trigger on push to main or test branch and allow manual runs
 on:
   push:
     branches:
       - main
       - test
   workflow_dispatch:
+
+permissions:
+  contents: read        # Required to checkout code
+  id-token: write       # Not needed here since we use SP, but safe
+
 jobs:
-  terraform:
+  deploy:
     runs-on: ubuntu-latest
-    environment: production
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
     steps:
-      - name: Checkout
+      # 1️⃣ Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Login to Azure using Service Principal
+      - name: Azure Login via SP
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.0
+          terraform_version: 1.6.0
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-          enable-oidc: false
-
-      - name: Verify SP access
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: |
-          az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
-          az account show
-          
+      # 4️⃣ Initialize Terraform
       - name: Terraform Init
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: |
-          terraform init -backend-config="env/dev/dev.backend.conf"
+        run: terraform init
 
+      # 5️⃣ Validate Terraform configuration
+      - name: Terraform Validate
+        run: terraform validate
+
+      # 6️⃣ Terraform Plan
       - name: Terraform Plan
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-         run: |
-           terraform plan -out=tfplan -input=false
+        run: terraform plan -out=tfplan
 
+      # 7️⃣ Terraform Apply
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main'
-         env:
-           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-         run: |
-           terraform apply -input=false -auto-approve tfplan
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test'
+        run: terraform apply -auto-approve tfplan
+
+      # 8️⃣ Output VM Public IP
+      - name: Show Public IP
+        run: terraform output
