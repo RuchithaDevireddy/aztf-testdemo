@@ -11,6 +11,13 @@ on:
        options:
         - dev
         - test
+      action:
+        type: choice
+        description: "Choose Terraform action"
+        required: true
+        options:
+          - plan
+          - apply  
 
 jobs:
   terraform:
