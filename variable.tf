@@ -18,3 +18,9 @@ variable "ssh_public_key_path" {
   type    = string
   default = "~/.ssh/id_rsa.pub"
 }
+variable "environment" {
+  description = "Environment name (dev or test)"
+  type        = string
+  default     = "dev"
+}
+
