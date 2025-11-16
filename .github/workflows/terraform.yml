@@ -1,31 +1,39 @@
 name: Terraform Azure Deployment
-run-name: Deploy to ${{ inputs.environments}} by @${{github.actor}}
+run-name: Deploy to ${{ inputs.environments }} by @${{ github.actor }}
+
 on:
   workflow_dispatch:
     inputs:
-      environments: 
-       description: "choose environment"
-       required: true
-       default: dev
-       type: choice
-       options:
-        - dev
-        - test
-      action:
+      environments:
+        description: "Choose environment"
+        required: true
+        default: dev
         type: choice
+        options:
+          - dev
+          - test
+      action:
         description: "Choose Terraform action"
         required: true
+        default: plan
+        type: choice
         options:
           - plan
-          - apply  
+          - apply
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    environment: production
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ENVIRONMENT: ${{ inputs.environments }}
+      ACTION: ${{ inputs.action }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Terraform
@@ -37,43 +45,30 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          enable-oidc: false
 
-      - name: Verify SP access
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: |
-          az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
-          az account show
+      - name: Setup SSH public key
+        run: echo "${{ secrets.SSH_PUBLIC_KEY }}" > public_key.pub
 
       - name: Terraform Init
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
-          terraform init -backend-config="env/dev/dev.backend.conf"
+          terraform init -backend-config="env/${{ env.ENVIRONMENT }}/${{ env.ENVIRONMENT }}.backend.conf"
 
       - name: Terraform Plan
-        if: ${{ inputs.action == 'plan' }}
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        if: env.ACTION == 'plan'
         run: |
-          terraform plan -out=tfplan -input=false
+          terraform plan \
+            -var="ssh_public_key_path=public_key.pub" \
+            -var="environment=${{ env.ENVIRONMENT }}" \
+            -out=tfplan \
+            -input=false
 
       - name: Terraform Apply
-        if: ${{ inputs.action == 'apply' }}
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        if: env.ACTION == 'apply'
         run: |
-          terraform apply -input=false -auto-approve tfplan
+          if [ -f tfplan ]; then
+            terraform apply -input=false -auto-approve tfplan
+          else
+            terraform apply -input=false -auto-approve \
+              -var="ssh_public_key_path=public_key.pub" \
+              -var="environment=${{ env.ENVIRONMENT }}"
+          fi
