@@ -5,12 +5,12 @@ variable "rg_name" {
 
 variable "location" {
   type    = string
-  default = "East US"
+  default = "East US 2"
 }
 
 variable "vm_size" {
   type    = string
-  default = "Standard_B1s"
+  default = "Standard_B2s"
 }
 
 variable "admin_username" {
