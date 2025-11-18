@@ -1,16 +1,14 @@
 ############################################
 # 1. Resource Group
 ############################################
-
 resource "azurerm_resource_group" "rg" {
   name     = var.rg_name
   location = var.location
 }
 
 ############################################
-# 2. Virtual Network 1 + Subnet
+# 2. Virtual Network 1 + Subnet 1
 ############################################
-
 resource "azurerm_virtual_network" "vnet1" {
   name                = "${var.rg_name}-vnet1"
   address_space       = ["10.0.0.0/16"]
@@ -26,14 +24,16 @@ resource "azurerm_subnet" "subnet1" {
 }
 
 ############################################
-# 3. Virtual Network 2 + Subnet
+# 3. Virtual Network 2 + Subnet 2
+# (depends on VNet1 to avoid race conditions)
 ############################################
-
 resource "azurerm_virtual_network" "vnet2" {
   name                = "${var.rg_name}-vnet2"
   address_space       = ["10.1.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+
+  depends_on = [azurerm_virtual_network.vnet1]
 }
 
 resource "azurerm_subnet" "subnet2" {
@@ -44,9 +44,8 @@ resource "azurerm_subnet" "subnet2" {
 }
 
 ############################################
-# 4. Public IP for VM1
+# 4. Public IPs (VM1 & VM2)
 ############################################
-
 resource "azurerm_public_ip" "pip1" {
   name                = "${var.rg_name}-pip1"
   location            = azurerm_resource_group.rg.location
@@ -55,10 +54,17 @@ resource "azurerm_public_ip" "pip1" {
   sku                 = "Standard"
 }
 
-############################################
-# 5. NIC for VM1
-############################################
+resource "azurerm_public_ip" "pip2" {
+  name                = "${var.rg_name}-pip2"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
 
+############################################
+# 5. Network Interfaces (VM1 & VM2)
+############################################
 resource "azurerm_network_interface" "nic1" {
   name                = "${var.rg_name}-nic1"
   location            = azurerm_resource_group.rg.location
@@ -71,22 +77,6 @@ resource "azurerm_network_interface" "nic1" {
     public_ip_address_id          = azurerm_public_ip.pip1.id
   }
 }
-
-############################################
-# 6. Public IP for VM2
-############################################
-
-resource "azurerm_public_ip" "pip2" {
-  name                = "${var.rg_name}-pip2"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-############################################
-# 7. NIC for VM2
-############################################
 
 resource "azurerm_network_interface" "nic2" {
   name                = "${var.rg_name}-nic2"
@@ -102,9 +92,8 @@ resource "azurerm_network_interface" "nic2" {
 }
 
 ############################################
-# 8. Linux VM1
+# 6. Linux VMs (VM1 & VM2)
 ############################################
-
 resource "azurerm_linux_virtual_machine" "vm1" {
   name                = "${var.rg_name}-vm1"
   location            = azurerm_resource_group.rg.location
@@ -129,11 +118,9 @@ resource "azurerm_linux_virtual_machine" "vm1" {
     sku       = "22_04-lts-gen2"
     version   = "latest"
   }
-}
 
-############################################
-# 9. Linux VM2
-############################################
+  depends_on = [azurerm_network_interface.nic1]
+}
 
 resource "azurerm_linux_virtual_machine" "vm2" {
   name                = "${var.rg_name}-vm2"
@@ -159,6 +146,31 @@ resource "azurerm_linux_virtual_machine" "vm2" {
     sku       = "22_04-lts-gen2"
     version   = "latest"
   }
+
+  depends_on = [azurerm_network_interface.nic2]
 }
 
+############################################
+# 7. VNet Peering (after both VNets are ready)
+############################################
+resource "azurerm_virtual_network_peering" "vnet1_to_vnet2" {
+  name                      = "vnet1-to-vnet2"
+  resource_group_name       = azurerm_resource_group.rg.name
+  virtual_network_name      = azurerm_virtual_network.vnet1.name
+  remote_virtual_network_id = azurerm_virtual_network.vnet2.id
+  allow_forwarded_traffic   = true
+  allow_virtual_network_access = true
 
+  depends_on = [azurerm_virtual_network.vnet2]
+}
+
+resource "azurerm_virtual_network_peering" "vnet2_to_vnet1" {
+  name                      = "vnet2-to-vnet1"
+  resource_group_name       = azurerm_resource_group.rg.name
+  virtual_network_name      = azurerm_virtual_network.vnet2.name
+  remote_virtual_network_id = azurerm_virtual_network.vnet1.id
+  allow_forwarded_traffic   = true
+  allow_virtual_network_access = true
+
+  depends_on = [azurerm_virtual_network.vnet1]
+}
