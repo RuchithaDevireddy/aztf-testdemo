@@ -90,4 +90,94 @@ resource "azurerm_network_interface" "nic2" {
 
   ip_configuration {
     name                          = "ipconfig2"
-    subnet_id_
+    subnet_id                     = azurerm_subnet.subnet2.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.pip2.id
+  }
+
+  depends_on = [azurerm_subnet.subnet2, azurerm_public_ip.pip2]
+}
+
+##################################################
+# 6. Linux Virtual Machines
+##################################################
+resource "azurerm_linux_virtual_machine" "vm1" {
+  name                = "${var.rg_name}-vm1"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  size                = var.vm_size
+  admin_username      = var.admin_username
+  network_interface_ids = [azurerm_network_interface.nic1.id]
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = file(var.ssh_public_key_path)
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  depends_on = [azurerm_network_interface.nic1]
+}
+
+resource "azurerm_linux_virtual_machine" "vm2" {
+  name                = "${var.rg_name}-vm2"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  size                = var.vm_size
+  admin_username      = var.admin_username
+  network_interface_ids = [azurerm_network_interface.nic2.id]
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = file(var.ssh_public_key_path)
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  depends_on = [azurerm_network_interface.nic2]
+}
+
+##################################################
+# 7. VNet Peering (Bidirectional)
+##################################################
+resource "azurerm_virtual_network_peering" "vnet1_to_vnet2" {
+  name                      = "vnet1-to-vnet2"
+  resource_group_name       = azurerm_resource_group.rg.name
+  virtual_network_name      = azurerm_virtual_network.vnet1.name
+  remote_virtual_network_id = azurerm_virtual_network.vnet2.id
+  allow_forwarded_traffic   = true
+  allow_virtual_network_access = true
+
+  depends_on = [azurerm_virtual_network.vnet2]
+}
+
+resource "azurerm_virtual_network_peering" "vnet2_to_vnet1" {
+  name                      = "vnet2-to-vnet1"
+  resource_group_name       = azurerm_resource_group.rg.name
+  virtual_network_name      = azurerm_virtual_network.vnet2.name
+  remote_virtual_network_id = azurerm_virtual_network.vnet1.id
+  allow_forwarded_traffic   = true
+  allow_virtual_network_access = true
+
+  depends_on = [azurerm_virtual_network.vnet1]
+}
