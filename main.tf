@@ -1,6 +1,16 @@
-# -------------------
-# VNET 1 + SUBNET 1
-# -------------------
+############################################
+# 1. Resource Group
+############################################
+
+resource "azurerm_resource_group" "rg" {
+  name     = var.rg_name
+  location = var.location
+}
+
+############################################
+# 2. Virtual Network 1 + Subnet
+############################################
+
 resource "azurerm_virtual_network" "vnet1" {
   name                = "${var.rg_name}-vnet1"
   address_space       = ["10.0.0.0/16"]
@@ -15,9 +25,10 @@ resource "azurerm_subnet" "subnet1" {
   address_prefixes     = ["10.0.1.0/24"]
 }
 
-# -------------------
-# VNET 2 + SUBNET 2
-# -------------------
+############################################
+# 3. Virtual Network 2 + Subnet
+############################################
+
 resource "azurerm_virtual_network" "vnet2" {
   name                = "${var.rg_name}-vnet2"
   address_space       = ["10.1.0.0/16"]
@@ -31,9 +42,11 @@ resource "azurerm_subnet" "subnet2" {
   virtual_network_name = azurerm_virtual_network.vnet2.name
   address_prefixes     = ["10.1.1.0/24"]
 }
-# -------------------
-# VM1 NETWORKING
-# -------------------
+
+############################################
+# 4. Public IP for VM1
+############################################
+
 resource "azurerm_public_ip" "pip1" {
   name                = "${var.rg_name}-pip1"
   location            = azurerm_resource_group.rg.location
@@ -41,6 +54,10 @@ resource "azurerm_public_ip" "pip1" {
   allocation_method   = "Static"
   sku                 = "Standard"
 }
+
+############################################
+# 5. NIC for VM1
+############################################
 
 resource "azurerm_network_interface" "nic1" {
   name                = "${var.rg_name}-nic1"
@@ -55,35 +72,10 @@ resource "azurerm_network_interface" "nic1" {
   }
 }
 
-resource "azurerm_linux_virtual_machine" "vm1" {
-  name                = "${var.rg_name}-vm1"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  size                = var.vm_size
-  admin_username      = var.admin_username
-  network_interface_ids = [azurerm_network_interface.nic1.id]
+############################################
+# 6. Public IP for VM2
+############################################
 
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.ssh_public_key
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
-  }
-}
-
-# -------------------
-# VM2 NETWORKING
-# -------------------
 resource "azurerm_public_ip" "pip2" {
   name                = "${var.rg_name}-pip2"
   location            = azurerm_resource_group.rg.location
@@ -91,6 +83,10 @@ resource "azurerm_public_ip" "pip2" {
   allocation_method   = "Static"
   sku                 = "Standard"
 }
+
+############################################
+# 7. NIC for VM2
+############################################
 
 resource "azurerm_network_interface" "nic2" {
   name                = "${var.rg_name}-nic2"
@@ -105,17 +101,21 @@ resource "azurerm_network_interface" "nic2" {
   }
 }
 
-resource "azurerm_linux_virtual_machine" "vm2" {
-  name                = "${var.rg_name}-vm2"
+############################################
+# 8. Linux VM1
+############################################
+
+resource "azurerm_linux_virtual_machine" "vm1" {
+  name                = "${var.rg_name}-vm1"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   size                = var.vm_size
   admin_username      = var.admin_username
-  network_interface_ids = [azurerm_network_interface.nic2.id]
+  network_interface_ids = [azurerm_network_interface.nic1.id]
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = var.ssh_public_key
+    public_key = file(var.ssh_public_key_path)
   }
 
   os_disk {
@@ -126,7 +126,39 @@ resource "azurerm_linux_virtual_machine" "vm2" {
   source_image_reference {
     publisher = "Canonical"
     offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
+    sku       = "22_04-lts-gen2"
     version   = "latest"
   }
 }
+
+############################################
+# 9. Linux VM2
+############################################
+
+resource "azurerm_linux_virtual_machine" "vm2" {
+  name                = "${var.rg_name}-vm2"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  size                = var.vm_size
+  admin_username      = var.admin_username
+  network_interface_ids = [azurerm_network_interface.nic2.id]
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = file(var.ssh_public_key_path)
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+}
+
+
