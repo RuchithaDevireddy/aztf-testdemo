@@ -46,8 +46,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup SSH public key
-        run: echo "${{ secrets.SSH_PUBLIC_KEY }}" > public_key.pub
+     # - name: Setup SSH public key
+      #  run: echo "${{ secrets.SSH_PUBLIC_KEY }}" > public_key.pub
 
       - name: Terraform Init
         run: |
@@ -57,7 +57,6 @@ jobs:
         if: env.ACTION == 'plan'
         run: |
           terraform plan \
-            -var="ssh_public_key_path=public_key.pub" \
             -var="environment=${{ env.ENVIRONMENT }}" \
             -out=tfplan \
             -input=false
@@ -69,6 +68,5 @@ jobs:
             terraform apply -input=false -auto-approve tfplan
           else
             terraform apply -input=false -auto-approve \
-              -var="ssh_public_key_path=public_key.pub" \
               -var="environment=${{ env.ENVIRONMENT }}"
           fi
