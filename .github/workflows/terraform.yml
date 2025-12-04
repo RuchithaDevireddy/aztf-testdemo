@@ -46,8 +46,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-     # - name: Setup SSH public key
-      #  run: echo "${{ secrets.SSH_PUBLIC_KEY }}" > public_key.pub
+      - name: Setup SSH public key
+        run: echo "${{ secrets.SSH_PUBLIC_KEY }}" > public_key.pub
 
       - name: Terraform Init
         run: |
