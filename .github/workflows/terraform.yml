@@ -58,6 +58,7 @@ jobs:
         run: |
           terraform plan \
             -var="environment=${{ env.ENVIRONMENT }}" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
             -out=tfplan \
             -input=false
 
@@ -68,5 +69,6 @@ jobs:
             terraform apply -input=false -auto-approve tfplan
           else
             terraform apply -input=false -auto-approve \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
               -var="environment=${{ env.ENVIRONMENT }}"
           fi
