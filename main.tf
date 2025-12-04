@@ -1,4 +1,3 @@
-
 # ---------------------------
 # Resource Group
 # ---------------------------
@@ -8,7 +7,7 @@ resource "azurerm_resource_group" "rg" {
 }
 
 # ---------------------------
-# Storage Account (required)
+# Storage Account
 # ---------------------------
 resource "azurerm_storage_account" "sa" {
   name                     = var.storage_name
@@ -29,20 +28,20 @@ resource "azurerm_application_insights" "appi" {
 }
 
 # ---------------------------
-# Consumption Plan
+# Linux Consumption Plan (Y1)
 # ---------------------------
 resource "azurerm_service_plan" "plan" {
   name                = "${var.function_app_name}-plan"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-  os_type             = "Windows"
+  os_type             = "Linux"
   sku_name            = "Y1"
 }
 
 # ---------------------------
-# Function App
+# Azure Function App (Linux)
 # ---------------------------
-resource "azurerm_windows_function_app" "func" {
+resource "azurerm_linux_function_app" "func" {
   name                       = var.function_app_name
   location                   = var.location
   resource_group_name        = azurerm_resource_group.rg.name
@@ -52,11 +51,13 @@ resource "azurerm_windows_function_app" "func" {
 
   site_config {
     application_insights_connection_string = azurerm_application_insights.appi.connection_string
+    application_stack {
+      dotnet_version = "8.0"
+    }
   }
 
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME = "dotnet-isolated"
+    AzureWebJobsStorage      = azurerm_storage_account.sa.primary_connection_string
   }
 }
-
-
