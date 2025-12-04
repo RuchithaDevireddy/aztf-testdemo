@@ -1,24 +1,28 @@
+# Resource Group
 resource "azurerm_resource_group" "rg" {
-  name     = "example-rg"
-  location = "East US"
+  name     = "${var.resource_group_name}-${var.environment}"
+  location = var.location
 }
 
+# Virtual Network
 resource "azurerm_virtual_network" "vnet" {
-  name                = "example-vnet"
-  address_space       = ["10.0.0.0/16"]
+  name                = "${var.vnet_name}-${var.environment}"
+  address_space       = var.vnet_address_space
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 }
 
+# Subnet
 resource "azurerm_subnet" "subnet" {
-  name                 = "example-subnet"
+  name                 = "${var.subnet_name}-${var.environment}"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
+  address_prefixes     = var.subnet_address_prefix
 }
 
+# Network Interface
 resource "azurerm_network_interface" "nic" {
-  name                = "example-nic"
+  name                = "${var.nic_name}-${var.environment}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -29,19 +33,20 @@ resource "azurerm_network_interface" "nic" {
   }
 }
 
+# Linux VM
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = "example-vm"
+  name                = "${var.vm_name}-${var.environment}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  size                = "Standard_B1s"
-  admin_username      = "azureuser"
+  size                = var.vm_size
+  admin_username      = var.admin_username
   network_interface_ids = [
     azurerm_network_interface.nic.id,
   ]
 
   admin_ssh_key {
-    username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa.pub")
+    username   = var.admin_username
+    public_key = var.ssh_public_key
   }
 
   os_disk {
@@ -50,9 +55,14 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 
   source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
+    publisher = var.os_publisher
+    offer     = var.os_offer
+    sku       = var.os_sku
+    version   = var.os_version
   }
+}
+
+# Output VM public IP
+output "vm_public_ip" {
+  value = azurerm_network_interface.nic.private_ip_address
 }
