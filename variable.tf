@@ -1,99 +1,96 @@
-# Azure Provider Variables
+# Terraform variables
+
+variable "environment" {
+  description = "Deployment environment (dev/test/prod)"
+  type        = string
+  default     = "dev"
+}
+
 variable "location" {
-  description = "Azure region where resources will be deployed"
+  description = "Azure region for resources"
   type        = string
   default     = "East US"
 }
 
 variable "resource_group_name" {
-  description = "Name of the Azure Resource Group"
+  description = "Resource group name"
   type        = string
   default     = "example-rg"
 }
 
-# Virtual Network Variables
 variable "vnet_name" {
-  description = "Name of the Virtual Network"
+  description = "Virtual Network name"
   type        = string
   default     = "example-vnet"
 }
 
 variable "vnet_address_space" {
-  description = "Address space for the Virtual Network"
+  description = "VNet address space"
   type        = list(string)
   default     = ["10.0.0.0/16"]
 }
 
 variable "subnet_name" {
-  description = "Name of the subnet"
+  description = "Subnet name"
   type        = string
   default     = "example-subnet"
 }
 
 variable "subnet_address_prefix" {
-  description = "Address prefix for the subnet"
+  description = "Subnet address prefix"
   type        = list(string)
   default     = ["10.0.1.0/24"]
 }
 
-# Network Interface Variables
 variable "nic_name" {
-  description = "Name of the Network Interface"
+  description = "Network Interface name"
   type        = string
   default     = "example-nic"
 }
 
-# VM Variables
 variable "vm_name" {
-  description = "Name of the Virtual Machine"
+  description = "Virtual Machine name"
   type        = string
   default     = "example-vm"
 }
 
 variable "vm_size" {
-  description = "Size of the Virtual Machine"
+  description = "VM size"
   type        = string
   default     = "Standard_B1s"
 }
 
 variable "admin_username" {
-  description = "Admin username for the VM"
+  description = "Admin username for VM"
   type        = string
   default     = "azureuser"
 }
 
-variable "ssh_public_key_path" {
-  description = "Path to the public SSH key"
+variable "ssh_public_key" {
+  description = "SSH public key for VM access"
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
 }
 
-# OS Image Variables
 variable "os_publisher" {
-  description = "OS Image Publisher"
+  description = "OS image publisher"
   type        = string
   default     = "Canonical"
 }
 
 variable "os_offer" {
-  description = "OS Image Offer"
+  description = "OS image offer"
   type        = string
   default     = "UbuntuServer"
 }
 
 variable "os_sku" {
-  description = "OS Image SKU"
+  description = "OS image SKU"
   type        = string
   default     = "18.04-LTS"
 }
 
 variable "os_version" {
-  description = "OS Image Version"
+  description = "OS image version"
   type        = string
   default     = "latest"
-}
-variable "environment" {
-  description = "Deployment environment (e.g., dev, test)"
-  type        = string
-  default     = "dev"
 }
