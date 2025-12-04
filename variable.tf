@@ -92,3 +92,8 @@ variable "os_version" {
   type        = string
   default     = "latest"
 }
+variable "environment" {
+  description = "Deployment environment (e.g., dev, test)"
+  type        = string
+  default     = "dev"
+}
