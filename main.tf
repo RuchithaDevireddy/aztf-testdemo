@@ -1,183 +1,81 @@
-##################################################
-# 1. Resource Group
-##################################################
+terraform {
+  required_version = ">=1.3.0"
+
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+  }
+}
+
+provider "azurerm" {
+  features {}
+}
+
+# ---------------------------
+# Resource Group
+# ---------------------------
 resource "azurerm_resource_group" "rg" {
   name     = var.rg_name
   location = var.location
 }
 
-##################################################
-# 2. Virtual Network 1 + Subnet 1
-##################################################
-resource "azurerm_virtual_network" "vnet1" {
-  name                = "${var.rg_name}-vnet1"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.rg.location
+# ---------------------------
+# Storage Account (required)
+# ---------------------------
+resource "azurerm_storage_account" "sa" {
+  name                     = var.storage_name
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = var.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+# ---------------------------
+# Application Insights
+# ---------------------------
+resource "azurerm_application_insights" "appi" {
+  name                = "${var.function_app_name}-ai"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
+  application_type    = "web"
 }
 
-resource "azurerm_subnet" "subnet1" {
-  name                 = "${var.rg_name}-subnet1"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet1.name
-  address_prefixes     = ["10.0.1.0/24"]
-
-  depends_on = [azurerm_virtual_network.vnet1]
-}
-
-##################################################
-# 3. Virtual Network 2 + Subnet 2
-##################################################
-resource "azurerm_virtual_network" "vnet2" {
-  name                = "${var.rg_name}-vnet2"
-  address_space       = ["10.1.0.0/16"]
-  location            = azurerm_resource_group.rg.location
+# ---------------------------
+# Consumption Plan
+# ---------------------------
+resource "azurerm_service_plan" "plan" {
+  name                = "${var.function_app_name}-plan"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-
-  depends_on = [azurerm_virtual_network.vnet1]
+  os_type             = "Windows"
+  sku_name            = "Y1"
 }
 
-resource "azurerm_subnet" "subnet2" {
-  name                 = "${var.rg_name}-subnet2"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet2.name
-  address_prefixes     = ["10.1.1.0/24"]
+# ---------------------------
+# Function App
+# ---------------------------
+resource "azurerm_windows_function_app" "func" {
+  name                       = var.function_app_name
+  location                   = var.location
+  resource_group_name        = azurerm_resource_group.rg.name
+  service_plan_id           = azurerm_service_plan.plan.id
+  storage_account_name      = azurerm_storage_account.sa.name
+  storage_account_access_key = azurerm_storage_account.sa.primary_access_key
 
-  depends_on = [azurerm_virtual_network.vnet2]
-}
-
-##################################################
-# 4. Public IPs
-##################################################
-resource "azurerm_public_ip" "pip1" {
-  name                = "${var.rg_name}-pip1"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-resource "azurerm_public_ip" "pip2" {
-  name                = "${var.rg_name}-pip2"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-##################################################
-# 5. Network Interfaces
-##################################################
-resource "azurerm_network_interface" "nic1" {
-  name                = "${var.rg_name}-nic1"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                          = "ipconfig1"
-    subnet_id                     = azurerm_subnet.subnet1.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip1.id
+  site_config {
+    application_insights_connection_string = azurerm_application_insights.appi.connection_string
   }
 
-  depends_on = [azurerm_subnet.subnet1, azurerm_public_ip.pip1]
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME = "dotnet-isolated"
+  }
 }
 
-resource "azurerm_network_interface" "nic2" {
-  name                = "${var.rg_name}-nic2"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                          = "ipconfig2"
-    subnet_id                     = azurerm_subnet.subnet2.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip2.id
-  }
-
-  depends_on = [azurerm_subnet.subnet2, azurerm_public_ip.pip2]
+output "function_app_name" {
+  value = azurerm_windows_function_app.func.name
 }
-
-##################################################
-# 6. Linux Virtual Machines
-##################################################
-resource "azurerm_linux_virtual_machine" "vm1" {
-  name                = "${var.rg_name}-vm1"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  size                = var.vm_size
-  admin_username      = var.admin_username
-  network_interface_ids = [azurerm_network_interface.nic1.id]
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = file(var.ssh_public_key_path)
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
-  }
-
-  depends_on = [azurerm_network_interface.nic1]
-}
-
-resource "azurerm_linux_virtual_machine" "vm2" {
-  name                = "${var.rg_name}-vm2"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  size                = var.vm_size
-  admin_username      = var.admin_username
-  network_interface_ids = [azurerm_network_interface.nic2.id]
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = file(var.ssh_public_key_path)
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
-  }
-
-  depends_on = [azurerm_network_interface.nic2]
-}
-
-##################################################
-# 7. VNet Peering (Bidirectional)
-##################################################
-resource "azurerm_virtual_network_peering" "vnet1_to_vnet2" {
-  name                      = "vnet1-to-vnet2"
-  resource_group_name       = azurerm_resource_group.rg.name
-  virtual_network_name      = azurerm_virtual_network.vnet1.name
-  remote_virtual_network_id = azurerm_virtual_network.vnet2.id
-  allow_forwarded_traffic   = true
-  allow_virtual_network_access = true
-
-  depends_on = [azurerm_virtual_network.vnet2]
-}
-
-resource "azurerm_virtual_network_peering" "vnet2_to_vnet1" {
-  name                      = "vnet2-to-vnet1"
-  resource_group_name       = azurerm_resource_group.rg.name
-  virtual_network_name      = azurerm_virtual_network.vnet2.name
-  remote_virtual_network_id = azurerm_virtual_network.vnet1.id
-  allow_forwarded_traffic   = true
-  allow_virtual_network_access = true
-
-  depends_on = [azurerm_virtual_network.vnet1]
+output "resource_group" {
+  value = azurerm_resource_group.rg.name
 }
