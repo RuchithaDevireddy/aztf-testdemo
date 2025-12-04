@@ -9,8 +9,9 @@ variable "environment" {
 variable "location" {
   description = "Azure region for resources"
   type        = string
-  default     = "East US"
+  default     = "centralus"
 }
+
 
 variable "resource_group_name" {
   description = "Resource group name"
@@ -57,7 +58,7 @@ variable "vm_name" {
 variable "vm_size" {
   description = "VM size"
   type        = string
-  default     = "Standard_B1s"
+  default     = "Standard_B1ms"
 }
 
 variable "admin_username" {
