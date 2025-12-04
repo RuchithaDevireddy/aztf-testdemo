@@ -1,27 +1,19 @@
 variable "rg_name" {
-  type    = string
-  default = "demo-multi-vm-rg"
+  default = "rg-function-demo"
 }
 
 variable "location" {
-  type    = string
-  default = "East US 2"
+  default = "eastus"
 }
 
-variable "vm_size" {
-  type    = string
-  default = "Standard_B2s"
+variable "function_app_name" {
+  default = "mydemo-functionapp-001"
 }
 
-variable "admin_username" {
-  type    = string
-  default = "azureuser"
+variable "storage_name" {
+  default = "functionsa001demo"
 }
 
-variable "ssh_public_key_path" {
-  type    = string
-  default = "~/.ssh/id_rsa.pub"
-}
 variable "environment" {
   description = "Deployment environment name"
   type        = string
