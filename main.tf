@@ -1,63 +1,58 @@
-# ---------------------------
-# Resource Group
-# ---------------------------
 resource "azurerm_resource_group" "rg" {
-  name     = var.rg_name
-  location = var.location
+  name     = "example-rg"
+  location = "East US"
 }
 
-# ---------------------------
-# Storage Account
-# ---------------------------
-resource "azurerm_storage_account" "sa" {
-  name                     = var.storage_name
-  resource_group_name      = azurerm_resource_group.rg.name
-  location                 = var.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-}
-
-# ---------------------------
-# Application Insights
-# ---------------------------
-resource "azurerm_application_insights" "appi" {
-  name                = "${var.function_app_name}-ai"
-  location            = var.location
+resource "azurerm_virtual_network" "vnet" {
+  name                = "example-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  application_type    = "web"
 }
 
-# ---------------------------
-# Linux Consumption Plan (Y1)
-# ---------------------------
-resource "azurerm_service_plan" "plan" {
-  name                = "${var.function_app_name}-plan"
-  location            = var.location
+resource "azurerm_subnet" "subnet" {
+  name                 = "example-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+resource "azurerm_network_interface" "nic" {
+  name                = "example-nic"
+  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  os_type             = "Linux"
-  sku_name            = "Y1"
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.subnet.id
+    private_ip_address_allocation = "Dynamic"
+  }
 }
 
-# ---------------------------
-# Azure Function App (Linux)
-# ---------------------------
-resource "azurerm_linux_function_app" "func" {
-  name                       = var.function_app_name
-  location                   = var.location
-  resource_group_name        = azurerm_resource_group.rg.name
-  service_plan_id           = azurerm_service_plan.plan.id
-  storage_account_name      = azurerm_storage_account.sa.name
-  storage_account_access_key = azurerm_storage_account.sa.primary_access_key
+resource "azurerm_linux_virtual_machine" "vm" {
+  name                = "example-vm"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  size                = "Standard_B1s"
+  admin_username      = "azureuser"
+  network_interface_ids = [
+    azurerm_network_interface.nic.id,
+  ]
 
-  site_config {
-    application_insights_connection_string = azurerm_application_insights.appi.connection_string
-    application_stack {
-      dotnet_version = "8.0"
-    }
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = file("~/.ssh/id_rsa.pub")
   }
 
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "dotnet-isolated"
-    AzureWebJobsStorage      = azurerm_storage_account.sa.primary_connection_string
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
   }
 }
