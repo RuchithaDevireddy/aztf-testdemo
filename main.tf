@@ -40,9 +40,11 @@ resource "azurerm_public_ip" "public_ip" {
   name                = "${local.name_prefix}-pip"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
+
   allocation_method   = "Static"
-  sku                 = "Basic"
+  sku                 = "Standard"   
 }
+
 
 # ------------------------------
 # NIC
