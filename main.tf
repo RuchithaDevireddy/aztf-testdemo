@@ -1,3 +1,6 @@
+locals {
+  name_prefix = "example-${var.environment}"
+}
 # ------------------------------
 # Resource Group
 # ------------------------------
