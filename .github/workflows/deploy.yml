@@ -2,50 +2,44 @@ name: Deploy .NET App to Azure VM
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: 8.0.x
 
-      - name: Restore dependencies
-        run: dotnet restore ./YourProject.csproj
+      - name: Restore
+        run: dotnet restore MyDotNetApp/MyWebAPI/MyWebAPI.csproj
 
       - name: Build
-        run: dotnet build --configuration Release ./YourProject.csproj
+        run: dotnet build -c Release MyDotNetApp/MyWebAPI/MyWebAPI.csproj
 
       - name: Publish
-        run: dotnet publish --configuration Release -o publish/ ./YourProject.csproj
+        run: dotnet publish -c Release -o publish/ MyDotNetApp/MyWebAPI/MyWebAPI.csproj
 
-      - name: Install SSH Client
-        run: sudo apt-get install -y sshpass openssh-client
-
-      - name: Copy files to VM (SCP)
+      - name: Configure SSH Key
         run: |
-          echo "${{ secrets.VM_SSH_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
+          echo "${{ secrets.VM_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
 
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r publish/* \
+      - name: Copy files to VM
+        run: |
+          scp -o StrictHostKeyChecking=no -i key.pem -r publish/* \
             ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:/var/www/myapp/
 
       - name: Restart application on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key.pem \
+          ssh -o StrictHostKeyChecking=no -i key.pem \
             ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
-
             sudo systemctl daemon-reload
             sudo systemctl restart myapp
-            sudo systemctl status myapp --no-pager
-
-          EOF
+            EOF
