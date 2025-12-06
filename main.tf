@@ -1,63 +1,78 @@
-# -----------------------------
+# ------------------------------
 # Resource Group
-# -----------------------------
+# ------------------------------
 resource "azurerm_resource_group" "rg" {
-  name     = "${var.resource_group_name}-${var.environment}"
+  name     = "${local.name_prefix}-rg"
   location = var.location
 }
 
-# -----------------------------
+# ------------------------------
 # Virtual Network
-# -----------------------------
+# ------------------------------
 resource "azurerm_virtual_network" "vnet" {
-  name                = "${var.vnet_name}-${var.environment}"
-  address_space       = var.vnet_address_space
-  location            = azurerm_resource_group.rg.location
+  name                = "${local.name_prefix}-vnet"
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  address_space       = [var.vnet_address_space]
 }
 
-# -----------------------------
+# ------------------------------
 # Subnet
-# -----------------------------
+# ------------------------------
 resource "azurerm_subnet" "subnet" {
-  name                 = "${var.subnet_name}-${var.environment}"
+  name                 = "${local.name_prefix}-subnet"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = var.subnet_address_prefix
+  address_prefixes     = [var.subnet_address_prefix]
+
+  depends_on = [
+    azurerm_virtual_network.vnet
+  ]
 }
 
-# -----------------------------
-# Network Interface
-# -----------------------------
-resource "azurerm_network_interface" "nic" {
-  name                = "${var.nic_name}-${var.environment}"
-  location            = azurerm_resource_group.rg.location
+# ------------------------------
+# Public IP
+# ------------------------------
+resource "azurerm_public_ip" "public_ip" {
+  name                = "${local.name_prefix}-pip"
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  allocation_method   = "Static"
+  sku                 = "Basic"
+}
+
+# ------------------------------
+# NIC
+# ------------------------------
+resource "azurerm_network_interface" "nic" {
+  name                = "${local.name_prefix}-nic"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
 
   ip_configuration {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.public_ip.id
   }
 
-  # Ensure NIC waits for subnet and VNet
   depends_on = [
     azurerm_subnet.subnet,
-    azurerm_virtual_network.vnet
+    azurerm_public_ip.public_ip
   ]
 }
 
-# -----------------------------
+# ------------------------------
 # Linux Virtual Machine
-# -----------------------------
+# ------------------------------
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = "${var.vm_name}-${var.environment}"
+  name                = "${local.name_prefix}-vm"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = var.vm_size
   admin_username      = var.admin_username
   network_interface_ids = [
-    azurerm_network_interface.nic.id,
+    azurerm_network_interface.nic.id
   ]
 
   admin_ssh_key {
@@ -71,16 +86,13 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 
   source_image_reference {
-    publisher = var.os_publisher
-    offer     = var.os_offer
-    sku       = var.os_sku
-    version   = var.os_version
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts"
+    version   = "latest"
   }
 
-  # Ensure VM waits for NIC
   depends_on = [
     azurerm_network_interface.nic
   ]
 }
-
-
