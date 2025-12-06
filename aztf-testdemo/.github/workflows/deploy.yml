@@ -1,0 +1,49 @@
+name: Build and Deploy .NET App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x  # adjust to your .NET version
+
+      - name: Restore dependencies
+        run: dotnet restore MyDotNetApp/MyWebAPI/MyWebAPI.csproj
+
+      - name: Build
+        run: dotnet build MyDotNetApp/MyWebAPI/MyWebAPI.csproj --configuration Release
+
+      - name: Publish
+        run: dotnet publish MyDotNetApp/MyWebAPI/MyWebAPI.csproj -c Release -r linux-x64 --self-contained false -o ./publish
+
+      - name: Copy files to VM
+        uses: appleboy/scp-action@v0.1.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          source: "publish/*"
+          target: "/home/${{ secrets.VM_USERNAME }}/MyWebApp"
+
+      - name: Restart service on VM
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: |
+            sudo systemctl restart mywebapi
+            sudo systemctl status mywebapi --no-pager

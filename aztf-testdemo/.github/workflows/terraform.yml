@@ -1,0 +1,74 @@
+name: Terraform Azure Deployment
+run-name: Deploy to ${{ inputs.environments }} by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environments:
+        description: "Choose environment"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - test
+      action:
+        description: "Choose Terraform action"
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ENVIRONMENT: ${{ inputs.environments }}
+      ACTION: ${{ inputs.action }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup SSH public key
+        run: echo "${{ secrets.SSH_PUBLIC_KEY }}" > public_key.pub
+
+      - name: Terraform Init
+        run: |
+          terraform init -backend-config="env/${{ env.ENVIRONMENT }}/${{ env.ENVIRONMENT }}.backend.conf"
+
+      - name: Terraform Plan
+        if: env.ACTION == 'plan'
+        run: |
+          terraform plan \
+            -var="environment=${{ env.ENVIRONMENT }}" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -out=tfplan \
+            -input=false
+
+      - name: Terraform Apply
+        if: env.ACTION == 'apply'
+        run: |
+          if [ -f tfplan ]; then
+            terraform apply -input=false -auto-approve tfplan
+          else
+            terraform apply -input=false -auto-approve \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+              -var="environment=${{ env.ENVIRONMENT }}"
+          fi

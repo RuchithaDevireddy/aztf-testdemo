@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MyDotNetApp", "MyDotNetApp", "{E4D8458F-0B3D-EF7D-CA68-C150643704D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyWebAPI", "MyDotNetApp\MyWebAPI\MyWebAPI.csproj", "{4497A172-1B86-8292-6364-9D1AF3F29482}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4497A172-1B86-8292-6364-9D1AF3F29482}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4497A172-1B86-8292-6364-9D1AF3F29482}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4497A172-1B86-8292-6364-9D1AF3F29482}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4497A172-1B86-8292-6364-9D1AF3F29482}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4497A172-1B86-8292-6364-9D1AF3F29482} = {E4D8458F-0B3D-EF7D-CA68-C150643704D6}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1EB303AB-7BF7-4463-9560-A4B9D9ED1142}
+	EndGlobalSection
+EndGlobal

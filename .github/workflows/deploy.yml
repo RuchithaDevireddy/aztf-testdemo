@@ -1,12 +1,11 @@
-name: Build and Deploy .NET App
+name: Deploy .NET App to Azure VM
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,34 +15,31 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 8.0.x  # adjust to your .NET version
+          dotnet-version: 8.0.x
 
-      - name: Restore dependencies
+      - name: Restore
         run: dotnet restore MyDotNetApp/MyWebAPI/MyWebAPI.csproj
 
       - name: Build
-        run: dotnet build MyDotNetApp/MyWebAPI/MyWebAPI.csproj --configuration Release
+        run: dotnet build -c Release MyDotNetApp/MyWebAPI/MyWebAPI.csproj
 
       - name: Publish
-        run: dotnet publish MyDotNetApp/MyWebAPI/MyWebAPI.csproj -c Release -r linux-x64 --self-contained false -o ./publish
+        run: dotnet publish -c Release -o publish/ MyDotNetApp/MyWebAPI/MyWebAPI.csproj
+
+      - name: Configure SSH Key
+        run: |
+          echo "${{ secrets.VM_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
 
       - name: Copy files to VM
-        uses: appleboy/scp-action@v0.1.3
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USERNAME }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          port: 22
-          source: "publish/*"
-          target: "/home/${{ secrets.VM_USERNAME }}/MyWebApp"
+        run: |
+          scp -o StrictHostKeyChecking=no -i key.pem -r publish/* \
+            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:/var/www/myapp/
 
-      - name: Restart service on VM
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USERNAME }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          port: 22
-          script: |
-            sudo systemctl restart mywebapi
-            sudo systemctl status mywebapi --no-pager
+      - name: Restart application on VM
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem \
+            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+            sudo systemctl daemon-reload
+            sudo systemctl restart myapp
+            EOF
