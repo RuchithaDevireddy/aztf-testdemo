@@ -1,8 +1,7 @@
 name: Deploy .NET App to Azure VM
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   deploy:
