@@ -32,8 +32,7 @@ jobs:
 
       - name: Copy files to VM
         run: |
-          scp -o StrictHostKeyChecking=no -i key.pem -r publish/* \
-            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:/var/www/myapp/
+          scp -o StrictHostKeyChecking=no -i key.pem -r publish/* azureuser@172.203.33.127:/var/www/MyWebAPI/
 
       - name: Restart application on VM
         run: |
