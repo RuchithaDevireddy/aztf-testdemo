@@ -1,12 +1,33 @@
-############################################
-# VARIABLES
-############################################
+# variables.tf
 variable "environment" {
   type        = string
   description = "Environment name (dev, test)"
 }
-variable "resource_group_name" {}
-variable "location" {}
-variable "vm_name" { default = "myvm" }
-variable "admin_username" { default = "azureuser" }
-variable "vm_size" { default = "Standard_B1s" }
+
+variable "resource_group_name" {
+  description = "Name of the Azure Resource Group"
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region to deploy resources into"
+  type        = string
+}
+
+variable "vm_name" {
+  description = "Name of the Virtual Machine"
+  type        = string
+  default     = "myvm"
+}
+
+variable "admin_username" {
+  description = "Admin username for the VM"
+  type        = string
+  default     = "azureuser"
+}
+
+variable "vm_size" {
+  description = "Azure VM size"
+  type        = string
+  default     = "Standard_B1s"
+}
