@@ -1,88 +1,105 @@
-locals {
-  name_prefix = "example-${var.environment}"
-}
-# ------------------------------
-# Resource Group
-# ------------------------------
+############################################
+# RESOURCE GROUP
+############################################
+
 resource "azurerm_resource_group" "rg" {
-  name     = "${local.name_prefix}-rg"
+  name     = var.resource_group_name
   location = var.location
 }
 
-# ------------------------------
-# Virtual Network
-# ------------------------------
+############################################
+# NETWORKING
+############################################
+
 resource "azurerm_virtual_network" "vnet" {
-  name                = "${local.name_prefix}-vnet"
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "vnet-${var.vm_name}"
+  address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
-  address_space       = [var.vnet_address_space]
+  resource_group_name = azurerm_resource_group.rg.name
 }
 
-# ------------------------------
-# Subnet
-# ------------------------------
 resource "azurerm_subnet" "subnet" {
-  name                 = "${local.name_prefix}-subnet"
+  name                 = "subnet-${var.vm_name}"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = [var.subnet_address_prefix]
-
-  depends_on = [
-    azurerm_virtual_network.vnet
-  ]
+  address_prefixes     = ["10.0.1.0/24"]
 }
 
-# ------------------------------
-# Public IP
-# ------------------------------
 resource "azurerm_public_ip" "public_ip" {
-  name                = "${local.name_prefix}-pip"
+  name                = "pip-${var.vm_name}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+resource "azurerm_network_security_group" "nsg" {
+  name                = "nsg-${var.vm_name}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 
-  allocation_method   = "Static"
-  sku                 = "Standard"   
+  security_rule {
+    name                       = "AllowSSH"
+    priority                   = 1001
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
-
-# ------------------------------
-# NIC
-# ------------------------------
 resource "azurerm_network_interface" "nic" {
-  name                = "${local.name_prefix}-nic"
+  name                = "nic-${var.vm_name}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 
   ip_configuration {
-    name                          = "internal"
+    name                          = "ipconfig1"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.public_ip.id
   }
-
-  depends_on = [
-    azurerm_subnet.subnet,
-    azurerm_public_ip.public_ip
-  ]
 }
 
-# ------------------------------
-# Linux Virtual Machine
-# ------------------------------
+resource "azurerm_network_interface_security_group_association" "assoc" {
+  network_interface_id      = azurerm_network_interface.nic.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
+############################################
+# SSH KEY GENERATION
+############################################
+
+resource "tls_private_key" "vm_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "local_file" "private_key" {
+  content         = tls_private_key.vm_key.private_key_pem
+  filename        = "vm_key.pem"
+  file_permission = "0400"
+}
+
+############################################
+# LINUX VM
+############################################
+
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = "${local.name_prefix}-vm"
+  name                = var.vm_name
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = var.vm_size
   admin_username      = var.admin_username
-  network_interface_ids = [
-    azurerm_network_interface.nic.id
-  ]
+
+  network_interface_ids = [azurerm_network_interface.nic.id]
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = var.ssh_public_key
+    public_key = tls_private_key.vm_key.public_key_openssh
   }
 
   os_disk {
@@ -92,12 +109,10 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts"
     version   = "latest"
   }
+}
 
-  depends_on = [
-    azurerm_network_interface.nic
-  ]
 }
