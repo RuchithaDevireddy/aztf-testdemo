@@ -1,4 +1,4 @@
-Generate SSH key
+#Generate SSH key
 # -----------------------------
 resource "tls_private_key" "vm_key" {
   algorithm = "RSA"
