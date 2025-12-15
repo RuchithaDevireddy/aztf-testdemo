@@ -1,11 +1,16 @@
 terraform {
+  required_version = ">= 1.6.0"
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.90.0"   # use latest stable (currently 3.99+)
+      version = ">= 3.99.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.0.0"
     }
   }
-  required_version = ">= 1.6.0"
 }
 
 provider "azurerm" {
