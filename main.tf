@@ -126,6 +126,13 @@ resource "azurerm_linux_virtual_machine" "vm" {
     name                 = "osdisk-${var.environment}"
   }
 
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
   depends_on = [azurerm_network_interface.nic]
 
   timeouts {
@@ -133,3 +140,4 @@ resource "azurerm_linux_virtual_machine" "vm" {
     delete = "30m"
   }
 }
+
