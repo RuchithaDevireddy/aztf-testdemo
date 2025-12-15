@@ -7,11 +7,13 @@ variable "environment" {
 variable "resource_group_name" {
   description = "Name of the Azure Resource Group"
   type        = string
+  default     = 
 }
 
 variable "location" {
   description = "Azure region to deploy resources into"
   type        = string
+  default     = "centralus"
 }
 
 variable "vm_name" {
@@ -29,5 +31,5 @@ variable "admin_username" {
 variable "vm_size" {
   description = "Azure VM size"
   type        = string
-  default     = "Standard_B1s"
+  default     = "Standard_B1ms"
 }
