@@ -1,5 +1,4 @@
-# -----------------------------
-# Generate SSH key
+Generate SSH key
 # -----------------------------
 resource "tls_private_key" "vm_key" {
   algorithm = "RSA"
@@ -121,6 +120,12 @@ resource "azurerm_linux_virtual_machine" "vm" {
     public_key = tls_private_key.vm_key.public_key_openssh
   }
 
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "osdisk-${var.environment}"
+  }
+
   depends_on = [azurerm_network_interface.nic]
 
   timeouts {
@@ -128,4 +133,3 @@ resource "azurerm_linux_virtual_machine" "vm" {
     delete = "30m"
   }
 }
-
