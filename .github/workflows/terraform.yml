@@ -76,5 +76,6 @@ jobs:
         if: env.ACTION == 'apply'
         run: |
           terraform apply \
+            -var="environment=${{ env.ENVIRONMENT }}" \
             -auto-approve \
             -input=false
