@@ -1,5 +1,5 @@
 name: Terraform Azure Deployment
-run-name: Deploy ${{ inputs.environments }} by @${{ github.actor }}
+run-name: Deploy to ${{ inputs.environments }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
@@ -21,15 +21,17 @@ on:
           - plan
           - apply
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   terraform:
     runs-on: ubuntu-latest
 
     env:
+      # Azure Service Principal Auth (Path B)
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       ENVIRONMENT: ${{ inputs.environments }}
       ACTION: ${{ inputs.action }}
 
@@ -37,24 +39,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
+      # -----------------------------
+      # Terraform Init
+      # -----------------------------
       - name: Terraform Init
         working-directory: terraform
         run: |
           terraform init \
             -backend-config="env/${{ env.ENVIRONMENT }}/${{ env.ENVIRONMENT }}.backend.conf"
 
+      # -----------------------------
+      # Terraform Validate
+      # -----------------------------
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      # -----------------------------
+      # Terraform Plan
+      # -----------------------------
       - name: Terraform Plan
         if: env.ACTION == 'plan'
         working-directory: terraform
@@ -64,8 +72,13 @@ jobs:
             -out=tfplan \
             -input=false
 
+      # -----------------------------
+      # Terraform Apply
+      # -----------------------------
       - name: Terraform Apply
         if: env.ACTION == 'apply'
         working-directory: terraform
         run: |
-          terraform apply -auto-approve -input=false
+          terraform apply \
+            -auto-approve \
+            -input=false
