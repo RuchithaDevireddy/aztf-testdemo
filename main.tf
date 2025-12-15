@@ -1,42 +1,70 @@
-############################################
-# RESOURCE GROUP
-############################################
+terraform {
+  required_version = ">= 1.6.0"
 
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = ">= 3.99.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.0.0"
+    }
+  }
+}
+
+provider "azurerm" {
+  features {}
+}
+
+# -----------------------------
+# Generate SSH key
+# -----------------------------
+resource "tls_private_key" "vm_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# -----------------------------
+# Resource Group
+# -----------------------------
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
 }
 
-############################################
-# NETWORKING
-############################################
-
+# -----------------------------
+# Virtual Network
+# -----------------------------
 resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-${var.vm_name}"
+  name                = "vnet-${var.environment}"
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
+
+  timeouts {
+    create = "30m"
+    update = "30m"
+  }
 }
 
+# -----------------------------
+# Subnet
+# -----------------------------
 resource "azurerm_subnet" "subnet" {
-  name                 = "subnet-${var.vm_name}"
+  name                 = "subnet-${var.environment}"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
 }
 
-resource "azurerm_public_ip" "public_ip" {
-  name                = "pip-${var.vm_name}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
+# -----------------------------
+# Network Security Group
+# -----------------------------
 resource "azurerm_network_security_group" "nsg" {
-  name                = "nsg-${var.vm_name}"
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "nsg-${var.environment}"
   location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
 
   security_rule {
     name                       = "AllowSSH"
@@ -49,68 +77,74 @@ resource "azurerm_network_security_group" "nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+
+  depends_on = [azurerm_virtual_network.vnet]
+
+  timeouts {
+    create = "15m"
+  }
 }
 
-resource "azurerm_network_interface" "nic" {
-  name                = "nic-${var.vm_name}"
-  resource_group_name = azurerm_resource_group.rg.name
+# -----------------------------
+# Public IP
+# -----------------------------
+resource "azurerm_public_ip" "public_ip" {
+  name                = "pip-${var.environment}"
   location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+
+  depends_on = [azurerm_network_security_group.nsg]
+
+  timeouts {
+    create = "15m"
+  }
+}
+
+# -----------------------------
+# Network Interface
+# -----------------------------
+resource "azurerm_network_interface" "nic" {
+  name                = "nic-${var.environment}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
 
   ip_configuration {
-    name                          = "ipconfig1"
+    name                          = "internal"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.public_ip.id
   }
+
+  depends_on = [azurerm_public_ip.public_ip, azurerm_network_security_group.nsg]
 }
 
-resource "azurerm_network_interface_security_group_association" "assoc" {
-  network_interface_id      = azurerm_network_interface.nic.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
-}
-
-############################################
-# SSH KEY GENERATION
-############################################
-
-resource "tls_private_key" "vm_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "local_file" "private_key" {
-  content         = tls_private_key.vm_key.private_key_pem
-  filename        = "vm_key.pem"
-  file_permission = "0400"
-}
-
-############################################
-# LINUX VM
-############################################
-
+# -----------------------------
+# Linux VM
+# -----------------------------
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = var.vm_name
+  name                = "vm-${var.environment}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = var.vm_size
-  admin_username      = var.admin_username
+  admin_username      = "azureuser"
+  network_interface_ids = [
+    azurerm_network_interface.nic.id
+  ]
 
-  network_interface_ids = [azurerm_network_interface.nic.id]
+  disable_password_authentication = true
 
   admin_ssh_key {
-    username   = var.admin_username
+    username   = "azureuser"
     public_key = tls_private_key.vm_key.public_key_openssh
   }
 
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
+  depends_on = [azurerm_network_interface.nic]
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
+  timeouts {
+    create = "30m"
+    delete = "30m"
   }
 }
+
