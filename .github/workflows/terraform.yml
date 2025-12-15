@@ -48,7 +48,6 @@ jobs:
       # Terraform Init
       # -----------------------------
       - name: Terraform Init
-        working-directory: terraform
         run: |
           terraform init \
             -backend-config="env/${{ env.ENVIRONMENT }}/${{ env.ENVIRONMENT }}.backend.conf"
@@ -57,7 +56,6 @@ jobs:
       # Terraform Validate
       # -----------------------------
       - name: Terraform Validate
-        working-directory: terraform
         run: terraform validate
 
       # -----------------------------
@@ -65,7 +63,6 @@ jobs:
       # -----------------------------
       - name: Terraform Plan
         if: env.ACTION == 'plan'
-        working-directory: terraform
         run: |
           terraform plan \
             -var="environment=${{ env.ENVIRONMENT }}" \
